@@ -1,0 +1,9 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+python-dotenv>=1.0.0
+ibm-watsonx-ai>=1.1.2
+pdfplumber>=0.10.3
+sentence-transformers>=2.7.0
+faiss-cpu>=1.8.0
+numpy>=1.26.0
+gunicorn>=21.2.0

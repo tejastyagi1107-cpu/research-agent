@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResearchAI — CS Paper Assistant</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <!-- marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- highlight.js for code blocks -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+  <!-- ── Sidebar Navigation ── -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🔬</span>
+      <span class="logo-text">ResearchAI</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#" data-tab="home"    class="nav-link active"><span>🏠</span> Home</a></li>
+      <li><a href="#" data-tab="upload"  class="nav-link"><span>📤</span> Upload Paper</a></li>
+      <li><a href="#" data-tab="chat"    class="nav-link"><span>💬</span> Chat / Q&A</a></li>
+      <li><a href="#" data-tab="summary" class="nav-link"><span>📋</span> Summary View</a></li>
+      <li><a href="#" data-tab="explain" class="nav-link"><span>💡</span> Concept Explainer</a></li>
+    </ul>
+    <div class="sidebar-doc-status" id="sidebarDocStatus">
+      <span class="status-dot inactive" id="statusDot"></span>
+      <span id="statusText">No paper loaded</span>
+    </div>
+  </nav>
+
+  <!-- ── Main Content ── -->
+  <main class="main-content">
+    <!-- Home Tab -->
+    <div class="tab-panel active" id="tab-home">
+      <div class="hero">
+        <div class="hero-badge">Powered by IBM watsonx.ai</div>
+        <h1>CS Research Paper Assistant</h1>
+        <p class="hero-sub">Upload any algorithms, DSA, or AI/ML paper and instantly get beginner-friendly summaries, answers, and concept explanations — powered by a Llama 3.3 70B model and RAG retrieval.</p>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="feature-icon">📤</div>
+            <h3>Upload & Ingest</h3>
+            <p>Upload a PDF or paste raw text. We chunk and embed it into a FAISS vector store for fast semantic retrieval.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📋</div>
+            <h3>Auto-Summary</h3>
+            <p>Get a structured summary of core contributions, algorithms, complexity analysis, and experimental results.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">💬</div>
+            <h3>Q&A Chat</h3>
+            <p>Ask natural language questions. Get grounded answers with citations from the paper, explained simply.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">💡</div>
+            <h3>Concept Explainer</h3>
+            <p>Enter any CS concept — attention mechanism, B-trees, gradient descent — and get a step-by-step explanation with analogies.</p>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-lg" onclick="switchTab('upload')">Get Started →</button>
+      </div>
+    </div>
+
+    <!-- Upload Tab -->
+    <div class="tab-panel" id="tab-upload">
+      <div class="page-header">
+        <h2>📤 Upload Research Paper</h2>
+        <p>Upload a PDF or paste the text of your paper to begin.</p>
+      </div>
+      <div class="upload-section">
+        <div class="upload-modes">
+          <button class="mode-btn active" id="modePdf" onclick="setUploadMode('pdf')">📄 Upload PDF</button>
+          <button class="mode-btn" id="modeText" onclick="setUploadMode('text')">✏️ Paste Text</button>
+        </div>
+
+        <div id="pdfMode">
+          <div class="drop-zone" id="dropZone">
+            <div class="drop-icon">📄</div>
+            <p><strong>Drop your PDF here</strong> or click to browse</p>
+            <p class="drop-hint">Supports research papers, textbook chapters, technical reports</p>
+            <input type="file" id="fileInput" accept=".pdf" hidden />
+          </div>
+        </div>
+
+        <div id="textMode" style="display:none;">
+          <textarea id="pasteArea" class="paste-area" placeholder="Paste your paper text here...&#10;&#10;Abstract&#10;In this paper, we propose..."></textarea>
+        </div>
+
+        <button class="btn btn-primary" id="uploadBtn" onclick="uploadDocument()">
+          <span id="uploadBtnText">⚡ Ingest Document</span>
+        </button>
+      </div>
+
+      <div class="upload-result" id="uploadResult" style="display:none;"></div>
+    </div>
+
+    <!-- Chat Tab -->
+    <div class="tab-panel" id="tab-chat">
+      <div class="page-header">
+        <h2>💬 Chat / Q&A</h2>
+        <p>Ask anything about the paper. Answers are grounded in the paper's content.</p>
+      </div>
+      <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-bubble system">
+            <p>👋 Hi! Upload a paper first, then ask me anything about it. I'll explain concepts simply and cite relevant sections.</p>
+          </div>
+        </div>
+        <div class="chat-suggestions" id="chatSuggestions">
+          <span class="suggestion-chip" onclick="sendSuggestion(this)">What are the main contributions?</span>
+          <span class="suggestion-chip" onclick="sendSuggestion(this)">Explain the main algorithm step by step</span>
+          <span class="suggestion-chip" onclick="sendSuggestion(this)">What datasets were used?</span>
+          <span class="suggestion-chip" onclick="sendSuggestion(this)">What's the time complexity?</span>
+        </div>
+        <div class="chat-input-row">
+          <textarea id="chatInput" class="chat-input" placeholder="Ask a question about the paper..." rows="2" onkeydown="chatKeydown(event)"></textarea>
+          <button class="btn btn-primary send-btn" onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Tab -->
+    <div class="tab-panel" id="tab-summary">
+      <div class="page-header">
+        <h2>📋 Summary View</h2>
+        <p>Auto-generated structured summary of the paper's key contributions and methods.</p>
+      </div>
+      <div class="summary-actions">
+        <button class="btn btn-primary" onclick="generateSummary()">
+          <span id="summaryBtnText">✨ Generate Summary</span>
+        </button>
+        <button class="btn btn-secondary" onclick="copySummary()" id="copyBtn" style="display:none;">📋 Copy</button>
+      </div>
+      <div id="summaryOutput" class="markdown-output" style="display:none;"></div>
+    </div>
+
+    <!-- Concept Explainer Tab -->
+    <div class="tab-panel" id="tab-explain">
+      <div class="page-header">
+        <h2>💡 Concept Explainer</h2>
+        <p>Enter any CS/AI/ML concept for a beginner-friendly step-by-step explanation.</p>
+      </div>
+      <div class="explain-input-row">
+        <input type="text" id="conceptInput" class="concept-input" placeholder="e.g. attention mechanism, QuickSort, gradient descent, transformer..." onkeydown="if(event.key==='Enter') explainConcept()" />
+        <button class="btn btn-primary" onclick="explainConcept()">
+          <span id="explainBtnText">💡 Explain</span>
+        </button>
+      </div>
+      <div class="concept-chips">
+        <span class="concept-chip" onclick="quickExplain(this)">Attention Mechanism</span>
+        <span class="concept-chip" onclick="quickExplain(this)">FAISS Vector Search</span>
+        <span class="concept-chip" onclick="quickExplain(this)">Transformer Architecture</span>
+        <span class="concept-chip" onclick="quickExplain(this)">Dynamic Programming</span>
+        <span class="concept-chip" onclick="quickExplain(this)">Backpropagation</span>
+        <span class="concept-chip" onclick="quickExplain(this)">B-Trees</span>
+        <span class="concept-chip" onclick="quickExplain(this)">RAG (Retrieval-Augmented Generation)</span>
+        <span class="concept-chip" onclick="quickExplain(this)">Graph Neural Networks</span>
+      </div>
+      <div id="explainOutput" class="markdown-output" style="display:none;"></div>
+    </div>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
