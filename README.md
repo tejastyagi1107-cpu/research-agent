@@ -61,11 +61,9 @@ cp .env.example .env
 Edit `.env` and fill in your IBM watsonx.ai credentials:
 
 ```env
-WATSONX_API_KEY=Jb1-t50WofIsbVV3FCQ7wc3i7AtoSYkzIAbk7awo07GT
-WATSONX_URL=https://au-syd.ml.cloud.ibm.com
-WATSONX_PROJECT_ID=9687b849-596d-43bd-8b6b-0d3df7d1e704
-WATSONX_MODEL_ID=meta-llama/llama-3-3-70b-instruct
-SECRET_KEY=your-random-secret-key
+WATSONX_API_KEY=your_api_key_here
+WATSONX_URL=your_watsonx_url_here
+WATSONX_PROJECT_ID=your_project_id_here
 ```
 
 > **Get credentials:** Log in to [IBM Cloud](https://cloud.ibm.com) → IAM → API Keys. Your project ID is in watsonx.ai project settings.
