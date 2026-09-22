@@ -179,7 +179,8 @@ async function sendMessage() {
     if (data.error) {
       appendChatBubble('assistant', `⚠️ ${data.error}`);
     } else {
-      appendChatBubble('assistant', data.answer);
+      const sourcesHtml = buildSourcesHtml(data.sources || []);
+      appendChatBubble('assistant', data.answer, sourcesHtml);
       chatHistory.push({ role: 'assistant', content: data.answer });
     }
   } catch (err) {
@@ -188,7 +189,15 @@ async function sendMessage() {
   }
 }
 
-function appendChatBubble(role, content) {
+function buildSourcesHtml(sources) {
+  if (!sources || sources.length === 0) return '';
+  const items = sources.map(s =>
+    `<span class="source-tag" title="${s.snippet}">${s.label} — ${s.page}</span>`
+  ).join('');
+  return `<div class="source-pills">${items}</div>`;
+}
+
+function appendChatBubble(role, content, sourcesHtml) {
   const messages = document.getElementById('chatMessages');
   const bubble = document.createElement('div');
   bubble.className = `chat-bubble ${role}`;
@@ -196,6 +205,12 @@ function appendChatBubble(role, content) {
     bubble.innerHTML = marked.parse(content);
     // Highlight code blocks
     bubble.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+    // Append real source metadata (from backend, not LLM)
+    if (sourcesHtml) {
+      const sourcesEl = document.createElement('div');
+      sourcesEl.innerHTML = sourcesHtml;
+      bubble.appendChild(sourcesEl);
+    }
   } else {
     bubble.textContent = content;
   }
@@ -321,3 +336,162 @@ marked.setOptions({
     return hljs.highlightAuto(code).value;
   }
 });
+
+/* ── Compare Papers ── */
+const CATEGORY_CONFIG = {
+  research_problem: { icon: '📌', label: 'Research Problem' },
+  contribution:     { icon: '🎯', label: 'Main Contribution' },
+  method:           { icon: '🧠', label: 'Method / Approach' },
+  architecture:     { icon: '🏗️', label: 'Architecture / Model' },
+  dataset:          { icon: '📊', label: 'Dataset / Experimental Setup' },
+  metrics:          { icon: '📏', label: 'Evaluation Metrics' },
+  results:          { icon: '🔬', label: 'Key Results' },
+  limitations:      { icon: '⚠️', label: 'Limitations / Constraints' },
+};
+
+/* Compare — file inputs and drag-and-drop */
+(function initCompareUploads() {
+  const pairs = [
+    { drop: 'compareDropA', input: 'compareFileA', label: 'compareFileALabel' },
+    { drop: 'compareDropB', input: 'compareFileB', label: 'compareFileBLabel' },
+  ];
+  pairs.forEach(({ drop, input, label }) => {
+    const dropEl = document.getElementById(drop);
+    const inputEl = document.getElementById(input);
+    if (!dropEl || !inputEl) return;
+
+    dropEl.addEventListener('click', () => inputEl.click());
+    dropEl.addEventListener('dragover', (e) => { e.preventDefault(); dropEl.classList.add('dragging'); });
+    dropEl.addEventListener('dragleave', () => dropEl.classList.remove('dragging'));
+    dropEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropEl.classList.remove('dragging');
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.toLowerCase().endsWith('.pdf')) {
+        inputEl.files = e.dataTransfer.files;
+        document.getElementById(label).innerHTML = `<strong>📄 ${file.name}</strong>`;
+      }
+    });
+    inputEl.addEventListener('change', () => {
+      if (inputEl.files[0]) {
+        document.getElementById(label).innerHTML = `<strong>📄 ${inputEl.files[0].name}</strong>`;
+      }
+    });
+  });
+})();
+
+/* Compare — main action */
+async function comparePapers() {
+  const fileA = document.getElementById('compareFileA').files[0];
+  const fileB = document.getElementById('compareFileB').files[0];
+  const btn = document.getElementById('compareBtn');
+  const btnText = document.getElementById('compareBtnText');
+  const errorEl = document.getElementById('compareError');
+  const resultEl = document.getElementById('compareResult');
+
+  if (!fileA) { showCompareError('Please upload Paper A first.'); return; }
+  if (!fileB) { showCompareError('Please upload Paper B first.'); return; }
+
+  errorEl.style.display = 'none';
+  resultEl.style.display = 'none';
+  btnText.innerHTML = '<span class="spinner"></span> Analyzing papers & comparing…';
+  btn.disabled = true;
+
+  try {
+    const formData = new FormData();
+    formData.append('paper_a', fileA);
+    formData.append('paper_b', fileB);
+
+    const response = await fetch('/compare/analyze', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      showCompareError(data.error || 'Comparison failed.');
+      return;
+    }
+
+    renderComparison(data);
+
+  } catch (err) {
+    showCompareError('Network error: ' + err.message);
+  } finally {
+    btnText.textContent = '⚖️ Compare Papers';
+    btn.disabled = false;
+  }
+}
+
+function showCompareError(msg) {
+  const el = document.getElementById('compareError');
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+
+function renderComparison(data) {
+  const container = document.getElementById('compareResult');
+  let html = '<div class="compare-result-container">';
+
+  const comparison = data.comparison || {};
+
+  for (const [category, config] of Object.entries(CATEGORY_CONFIG)) {
+    const cat = comparison[category];
+    if (!cat) continue;
+
+    const srcA = (cat.sources_a || []).map(s =>
+      `<span class="source-tag" title="${escHtml(s.snippet)}">📍 Paper A — ${s.page}</span>`
+    ).join('');
+    const srcB = (cat.sources_b || []).map(s =>
+      `<span class="source-tag" title="${escHtml(s.snippet)}">📍 Paper B — ${s.page}</span>`
+    ).join('');
+
+    html += `
+      <div class="compare-category-card">
+        <div class="compare-category-title">${config.icon} ${config.label}</div>
+        <div class="compare-columns">
+          <div class="compare-col">
+            <div class="compare-col-label">Paper A</div>
+            <div class="compare-col-text">${marked.parse(cat.paper_a || 'Not specified in the paper.')}</div>
+            ${srcA ? `<div class="source-pills">${srcA}</div>` : ''}
+          </div>
+          <div class="compare-col">
+            <div class="compare-col-label">Paper B</div>
+            <div class="compare-col-text">${marked.parse(cat.paper_b || 'Not specified in the paper.')}</div>
+            ${srcB ? `<div class="source-pills">${srcB}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Key Differences
+  const diffs = data.key_differences || [];
+  if (diffs.length > 0) {
+    html += `
+      <div class="compare-category-card key-diff-card">
+        <div class="compare-category-title">🔑 Key Differences</div>
+        <ul class="key-diff-list">
+          ${diffs.map(d => `<li>${escHtml(d)}</li>`).join('')}
+        </ul>
+      </div>`;
+  }
+
+  // Meta
+  const meta = data.meta || {};
+  html += `
+    <div class="compare-meta">
+      Paper A: ${meta.paper_a_chunks || '?'} chunks indexed · Paper B: ${meta.paper_b_chunks || '?'} chunks indexed
+    </div>`;
+
+  html += '</div>';
+  container.innerHTML = html;
+  container.style.display = 'block';
+}
+
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+

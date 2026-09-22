@@ -25,6 +25,7 @@
       <li><a href="#" data-tab="chat"    class="nav-link"><span>💬</span> Chat / Q&A</a></li>
       <li><a href="#" data-tab="summary" class="nav-link"><span>📋</span> Summary View</a></li>
       <li><a href="#" data-tab="explain" class="nav-link"><span>💡</span> Concept Explainer</a></li>
+      <li><a href="#" data-tab="compare" class="nav-link"><span>⚖️</span> Compare Papers</a></li>
     </ul>
     <div class="sidebar-doc-status" id="sidebarDocStatus">
       <span class="status-dot inactive" id="statusDot"></span>
@@ -162,6 +163,40 @@
         <span class="concept-chip" onclick="quickExplain(this)">Graph Neural Networks</span>
       </div>
       <div id="explainOutput" class="markdown-output" style="display:none;"></div>
+    </div>
+
+    <!-- Compare Papers Tab -->
+    <div class="tab-panel" id="tab-compare">
+      <div class="page-header">
+        <h2>⚖️ Compare Papers</h2>
+        <p>Upload two research papers for a structured, evidence-grounded side-by-side comparison.</p>
+      </div>
+
+      <div class="compare-upload-grid">
+        <div class="compare-upload-card">
+          <h3>📄 Paper A</h3>
+          <div class="drop-zone compare-drop" id="compareDropA">
+            <div class="drop-icon">📄</div>
+            <p id="compareFileALabel"><strong>Drop PDF here</strong> or click to browse</p>
+            <input type="file" id="compareFileA" accept=".pdf" hidden />
+          </div>
+        </div>
+        <div class="compare-upload-card">
+          <h3>📄 Paper B</h3>
+          <div class="drop-zone compare-drop" id="compareDropB">
+            <div class="drop-icon">📄</div>
+            <p id="compareFileBLabel"><strong>Drop PDF here</strong> or click to browse</p>
+            <input type="file" id="compareFileB" accept=".pdf" hidden />
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" id="compareBtn" onclick="comparePapers()">
+        <span id="compareBtnText">⚖️ Compare Papers</span>
+      </button>
+
+      <div id="compareError" class="upload-result error" style="display:none;"></div>
+      <div id="compareResult" style="display:none;"></div>
     </div>
   </main>
 
